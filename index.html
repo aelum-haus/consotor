@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Consortor Pro - Adaptive Edition</title>
-    <!-- Используем проверенные временем ссылки и добавляем атрибуты crossorigin -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ffmpeg/0.12.10/ffmpeg.min.js" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ffmpeg-util/0.12.1/index.min.js" crossorigin="anonymous"></script>
+    <title>Consortor Web - Adaptive Edition</title>
+    <!-- Использование прямых и корректных ссылок на UNPKG -->
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+    <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
     <style>
         :root {
             --bg-color: #f3f3f3;
@@ -259,35 +259,34 @@
             document.getElementById('simpleSettings').style.display = isFlow ? 'none' : 'block';
         });
 
-        // Функция проверки библиотек
         function areLibrariesLoaded() {
-            return (typeof window.FFmpeg !== 'undefined' && typeof window.FFmpegUtil !== 'undefined');
+            // Проверяем наличие объектов в глобальном пространстве имен UMD
+            return (window.FFmpegWasm && window.FFmpegWasm.FFmpeg) || (window.FFmpeg && window.FFmpeg.FFmpeg);
         }
 
         async function loadFFmpeg() {
             if (ffmpeg) return;
 
-            // Если библиотеки еще не подгрузились из тегов <script>, ждем их
-            if (!areLibrariesLoaded()) {
-                statusLabel.innerText = "Ожидание загрузки библиотек...";
-                let attempts = 0;
-                while (!areLibrariesLoaded() && attempts < 100) {
-                    await new Promise(r => setTimeout(r, 100));
-                    attempts++;
-                }
+            statusLabel.innerText = "Проверка библиотек...";
+            
+            // Ожидание загрузки скриптов
+            let attempts = 0;
+            while (!areLibrariesLoaded() && attempts < 50) {
+                await new Promise(r => setTimeout(r, 200));
+                attempts++;
             }
 
             if (!areLibrariesLoaded()) {
-                throw new Error("Не удалось загрузить библиотеки FFmpeg. Проверьте соединение с интернетом.");
+                throw new Error("Библиотеки FFmpeg не найдены. Проверьте блокировщики рекламы или сеть.");
             }
             
+            // В версии 0.12.x доступ обычно через window.FFmpeg
             const { FFmpeg } = window.FFmpeg;
             const { toBlobURL } = window.FFmpegUtil;
             
             ffmpeg = new FFmpeg();
             
-            // Используем CDN Cloudflare для файлов ядра
-            const baseURL = 'https://cdnjs.cloudflare.com/ajax/libs/ffmpeg-core/0.12.6';
+            const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd';
             const isIsolated = window.crossOriginIsolated;
 
             statusLabel.innerText = isIsolated ? "Загрузка многопоточного ядра..." : "Загрузка ядра (iFrame mode)...";
@@ -300,7 +299,7 @@
                 });
             } catch (e) {
                 console.error(e);
-                throw new Error("Ошибка загрузки WASM. Попробуйте обновить страницу.");
+                throw new Error("Ошибка WASM. Попробуйте другой браузер или обновите страницу.");
             }
         }
 
@@ -309,7 +308,7 @@
             if (!file) return;
 
             processBtn.disabled = true;
-            processBtn.innerText = "Подготовка...";
+            processBtn.innerText = "Инициализация...";
             successArea.style.display = 'none';
             progressContainer.style.display = 'block';
             progressBar.style.width = '0%';
@@ -334,7 +333,8 @@
             const inputName = 'input.mp4';
             const outputName = 'output.mp4';
 
-            statusLabel.innerText = "Чтение файла...";
+            statusLabel.innerText = "Загрузка видео в память...";
+            statusLabel.style.color = "var(--text-sec)";
             await ffmpeg.writeFile(inputName, await fetchFile(file));
 
             ffmpeg.on('progress', ({ progress }) => {
@@ -342,7 +342,7 @@
             });
 
             if (useFlow) {
-                statusLabel.innerText = "Обработка Optical Flow (60 FPS)...";
+                statusLabel.innerText = "Идет интерполяция (60 FPS)...";
                 statusLabel.style.color = "#9b59b6";
 
                 await ffmpeg.exec([
@@ -350,12 +350,11 @@
                     '-vf', 'minterpolate=fps=60:mi_mode=mci:mc_mode=aobmc:me_mode=bidir',
                     '-c:v', 'libx264',
                     '-preset', 'ultrafast',
-                    '-crf', '20',
+                    '-crf', '23',
                     outputName
                 ]);
             } else {
-                statusLabel.innerText = "Конвертация в .ohgm...";
-                statusLabel.style.color = "var(--primary)";
+                statusLabel.innerText = "Конвертация...";
                 await ffmpeg.exec(['-i', inputName, '-c', 'copy', outputName]);
             }
 
@@ -366,7 +365,7 @@
             downloadBtn.href = url;
             downloadBtn.download = `${originalName}.ohgm`;
 
-            statusLabel.innerText = "Готово! Файл сохранен.";
+            statusLabel.innerText = "Завершено успешно!";
             statusLabel.style.color = "green";
             processBtn.disabled = false;
             processBtn.innerText = "ВЫБРАТЬ И ОБРАБОТАТЬ";
