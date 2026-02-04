@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consortor Pro - Adaptive Edition</title>
+    <!-- Используем проверенные временем ссылки и добавляем атрибуты crossorigin -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ffmpeg/0.12.10/ffmpeg.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ffmpeg-util/0.12.1/index.min.js" crossorigin="anonymous"></script>
+    <style>
+        :root {
+            --bg-color: #f3f3f3;
+            --card-bg: #ffffff;
+            --primary: #0078d4;
+            --primary-hover: #006cc1;
+            --text-main: #202020;
+            --text-sec: #606060;
+            --border: #e5e5e5;
+            --accent: #9b59b6;
+        }
+
+        body {
+            font-family: "Segoe UI Variable", "Segoe UI", sans-serif;
+            background-color: var(--bg-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            color: var(--text-main);
+        }
+
+        .window-container {
+            width: 500px;
+            background: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 30px;
+            text-align: center;
+            border: 1px solid #d1d1d1;
+        }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 25px;
+            color: var(--text-main);
+        }
+
+        .mode-selector {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f0f0f0;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 25px;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 24px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--accent);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .settings-box {
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 15px;
+            text-align: left;
+            margin-bottom: 25px;
+            background-color: #fcfcfc;
+            position: relative;
+        }
+
+        .settings-title {
+            position: absolute;
+            top: -10px;
+            left: 10px;
+            background: var(--card-bg);
+            padding: 0 5px;
+            font-size: 12px;
+            color: var(--primary);
+            font-weight: 500;
+        }
+
+        .setting-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: var(--text-sec);
+        }
+
+        .btn-upload {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: background 0.2s;
+        }
+
+        .btn-upload:hover {
+            background-color: var(--primary-hover);
+        }
+
+        .btn-upload:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+
+        .status-area {
+            margin-top: 20px;
+            font-size: 13px;
+            color: var(--text-sec);
+            min-height: 20px;
+        }
+
+        .progress-container {
+            width: 100%;
+            background-color: #e0e0e0;
+            border-radius: 4px;
+            margin-top: 15px;
+            height: 6px;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            background-color: var(--accent);
+            transition: width 0.3s ease;
+        }
+
+        #fileInput { display: none; }
+
+        .success-area {
+            margin-top: 20px;
+            display: none;
+        }
+        
+        .download-link {
+            color: var(--primary);
+            text-decoration: none;
+            font-weight: bold;
+            border: 1px solid var(--primary);
+            padding: 8px 16px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .info-text { font-size: 12px; color: var(--text-sec); }
+    </style>
+</head>
+<body>
+
+    <div class="window-container">
+        <h1>Consortor Pro Web</h1>
+
+        <div class="mode-selector">
+            <span class="info-text">Использовать Optical Flow (60 FPS)</span>
+            <label class="switch">
+                <input type="checkbox" id="flowToggle" checked>
+                <span class="slider"></span>
+            </label>
+        </div>
+
+        <div class="settings-box">
+            <span class="settings-title">Конфигурация .ohgm</span>
+            <div class="setting-item"><span>•</span> Кодек: H.264 (High Profile)</div>
+            <div id="flowSettings">
+                <div class="setting-item"><span>•</span> Частота: 60 FPS (Интерполяция)</div>
+                <div class="setting-item"><span>•</span> Поток: Optical Flow (MCI Mode)</div>
+            </div>
+            <div id="simpleSettings" style="display:none;">
+                <div class="setting-item"><span>•</span> Режим: Прямое перепаковывание</div>
+                <div class="setting-item"><span>•</span> Частота: Исходная</div>
+            </div>
+        </div>
+
+        <input type="file" id="fileInput" accept="video/mp4">
+        
+        <button class="btn-upload" id="processBtn" onclick="document.getElementById('fileInput').click()">
+            ВЫБРАТЬ И ОБРАБОТАТЬ
+        </button>
+
+        <div class="progress-container" id="progressContainer">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+
+        <div class="status-area" id="statusLabel">Статус: Ожидание файла</div>
+        
+        <div class="success-area" id="successArea">
+            <p>Конвертация завершена!</p>
+            <a href="#" id="downloadBtn" class="download-link">Скачать .ohgm</a>
+        </div>
+    </div>
+
+    <script>
+        let ffmpeg = null;
+
+        const statusLabel = document.getElementById('statusLabel');
+        const processBtn = document.getElementById('processBtn');
+        const fileInput = document.getElementById('fileInput');
+        const progressBar = document.getElementById('progressBar');
+        const progressContainer = document.getElementById('progressContainer');
+        const successArea = document.getElementById('successArea');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const flowToggle = document.getElementById('flowToggle');
+
+        flowToggle.addEventListener('change', () => {
+            const isFlow = flowToggle.checked;
+            document.getElementById('flowSettings').style.display = isFlow ? 'block' : 'none';
+            document.getElementById('simpleSettings').style.display = isFlow ? 'none' : 'block';
+        });
+
+        // Функция проверки библиотек
+        function areLibrariesLoaded() {
+            return (typeof window.FFmpeg !== 'undefined' && typeof window.FFmpegUtil !== 'undefined');
+        }
+
+        async function loadFFmpeg() {
+            if (ffmpeg) return;
+
+            // Если библиотеки еще не подгрузились из тегов <script>, ждем их
+            if (!areLibrariesLoaded()) {
+                statusLabel.innerText = "Ожидание загрузки библиотек...";
+                let attempts = 0;
+                while (!areLibrariesLoaded() && attempts < 100) {
+                    await new Promise(r => setTimeout(r, 100));
+                    attempts++;
+                }
+            }
+
+            if (!areLibrariesLoaded()) {
+                throw new Error("Не удалось загрузить библиотеки FFmpeg. Проверьте соединение с интернетом.");
+            }
+            
+            const { FFmpeg } = window.FFmpeg;
+            const { toBlobURL } = window.FFmpegUtil;
+            
+            ffmpeg = new FFmpeg();
+            
+            // Используем CDN Cloudflare для файлов ядра
+            const baseURL = 'https://cdnjs.cloudflare.com/ajax/libs/ffmpeg-core/0.12.6';
+            const isIsolated = window.crossOriginIsolated;
+
+            statusLabel.innerText = isIsolated ? "Загрузка многопоточного ядра..." : "Загрузка ядра (iFrame mode)...";
+
+            try {
+                await ffmpeg.load({
+                    coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+                    wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+                    workerURL: isIsolated ? await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript') : undefined
+                });
+            } catch (e) {
+                console.error(e);
+                throw new Error("Ошибка загрузки WASM. Попробуйте обновить страницу.");
+            }
+        }
+
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            processBtn.disabled = true;
+            processBtn.innerText = "Подготовка...";
+            successArea.style.display = 'none';
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+
+            try {
+                await processVideo(file);
+            } catch (error) {
+                console.error(error);
+                statusLabel.innerText = "Ошибка: " + error.message;
+                statusLabel.style.color = "red";
+                processBtn.disabled = false;
+                processBtn.innerText = "ВЫБРАТЬ И ОБРАБОТАТЬ";
+            }
+        });
+
+        async function processVideo(file) {
+            const useFlow = flowToggle.checked;
+            
+            await loadFFmpeg();
+            const { fetchFile } = window.FFmpegUtil;
+
+            const inputName = 'input.mp4';
+            const outputName = 'output.mp4';
+
+            statusLabel.innerText = "Чтение файла...";
+            await ffmpeg.writeFile(inputName, await fetchFile(file));
+
+            ffmpeg.on('progress', ({ progress }) => {
+                progressBar.style.width = (Math.round(progress * 100)) + '%';
+            });
+
+            if (useFlow) {
+                statusLabel.innerText = "Обработка Optical Flow (60 FPS)...";
+                statusLabel.style.color = "#9b59b6";
+
+                await ffmpeg.exec([
+                    '-i', inputName,
+                    '-vf', 'minterpolate=fps=60:mi_mode=mci:mc_mode=aobmc:me_mode=bidir',
+                    '-c:v', 'libx264',
+                    '-preset', 'ultrafast',
+                    '-crf', '20',
+                    outputName
+                ]);
+            } else {
+                statusLabel.innerText = "Конвертация в .ohgm...";
+                statusLabel.style.color = "var(--primary)";
+                await ffmpeg.exec(['-i', inputName, '-c', 'copy', outputName]);
+            }
+
+            const data = await ffmpeg.readFile(outputName);
+            const url = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
+
+            const originalName = file.name.replace(/\.[^/.]+$/, "");
+            downloadBtn.href = url;
+            downloadBtn.download = `${originalName}.ohgm`;
+
+            statusLabel.innerText = "Готово! Файл сохранен.";
+            statusLabel.style.color = "green";
+            processBtn.disabled = false;
+            processBtn.innerText = "ВЫБРАТЬ И ОБРАБОТАТЬ";
+            successArea.style.display = 'block';
+            progressBar.style.width = '100%';
+        }
+    </script>
+</body>
+</html>
